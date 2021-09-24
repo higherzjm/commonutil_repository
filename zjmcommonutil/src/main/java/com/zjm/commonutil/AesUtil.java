@@ -11,8 +11,6 @@ import javax.crypto.spec.DESKeySpec;
 import java.security.Key;
 
 /**
- * 完全兼容微信所使用的AES加密方式。
- * aes的key必须是256byte长（比如32个字符），可以使用AesKit.genAesKey()来生成一组key
  */
 public class AesUtil {
     public static void main(String[] args){
