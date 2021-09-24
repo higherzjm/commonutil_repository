@@ -11,8 +11,6 @@ import org.springframework.stereotype.Component;
 
 /**
  * Spring工具类
- *
- * @author 梁桂钊
  */
 @Component
 public final class SpringBeanUtils implements BeanFactoryPostProcessor, ApplicationContextAware {
