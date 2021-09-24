@@ -1,119 +1,91 @@
 package com.zjm.commonutil;
 
 
+import org.apache.commons.codec.binary.Hex;
+
 import javax.crypto.Cipher;
-import javax.crypto.spec.IvParameterSpec;
-import javax.crypto.spec.SecretKeySpec;
-import java.util.Arrays;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.DESKeySpec;
+import java.security.Key;
 
 /**
  * 完全兼容微信所使用的AES加密方式。
  * aes的key必须是256byte长（比如32个字符），可以使用AesKit.genAesKey()来生成一组key
  */
 public class AesUtil {
-    public static void main(String[] args) throws Exception {
-       String key=genAesKey();
+    public static void main(String[] args){
+       String key=generateSecretkey();
        String value="我是张三";
-        byte[] enValue=encrypt(value,key);
-        String enValStr=new String(enValue);
-        System.out.println("enValue 加密结果:"+enValStr);
-        String decValue=decryptToStr(enValStr.getBytes(Charsets.UTF_8),key);
-        System.out.println("decValue 加密结果:"+decValue);
+        String enValue=dataEncryption(value,key);
+        System.out.println("enValue 加密结果:"+enValue);
+        String decValue=dataDecryption(enValue,key);
+        System.out.println("decValue 解密结果:"+decValue);
     }
-
-    private AesUtil() {
-    }
-
-    public static String genAesKey() {
-        return StringUtil.random(32);
-    }
-
-    public static byte[] encrypt(byte[] content, String aesTextKey) {
-        return encrypt(content, aesTextKey.getBytes(Charsets.UTF_8));
-    }
-
-    public static byte[] encrypt(String content, String aesTextKey) {
-        return encrypt(content.getBytes(Charsets.UTF_8), aesTextKey.getBytes(Charsets.UTF_8));
-    }
-
-    public static byte[] encrypt(String content, java.nio.charset.Charset charset, String aesTextKey) {
-        return encrypt(content.getBytes(charset), aesTextKey.getBytes(Charsets.UTF_8));
-    }
-
-    public static byte[] decrypt(byte[] content, String aesTextKey) {
-        return decrypt(content, aesTextKey.getBytes(Charsets.UTF_8));
-    }
-
-    public static String decryptToStr(byte[] content, String aesTextKey) {
-        return new String(decrypt(content, aesTextKey.getBytes(Charsets.UTF_8)), Charsets.UTF_8);
-    }
-
-    public static String decryptToStr(byte[] content, String aesTextKey, java.nio.charset.Charset charset) {
-        return new String(decrypt(content, aesTextKey.getBytes(Charsets.UTF_8)), charset);
-    }
-
-    public static byte[] encrypt(byte[] content, byte[] aesKey) {
-
+    /**
+     * @Description: 随机生成秘钥
+     **/
+    public static String generateSecretkey() {
+        // 生成key//返回生成指定算法密钥的KeyGenerator对象
+        KeyGenerator keyGenerator = null;
         try {
-            Cipher cipher = Cipher.getInstance("AES/CBC/NoPadding");
-            SecretKeySpec keySpec = new SecretKeySpec(aesKey, "AES");
-            IvParameterSpec iv = new IvParameterSpec(aesKey);
-            cipher.init(Cipher.ENCRYPT_MODE, keySpec, iv);
-            return cipher.doFinal(Pkcs7Encoder.encode(content));
+            keyGenerator = KeyGenerator.getInstance("DES");
         } catch (Exception e) {
             e.printStackTrace();
-            return null;
         }
-    }
-
-    public static byte[] decrypt(byte[] encrypted, byte[] aesKey) {
-        try {
-            Cipher cipher = Cipher.getInstance("AES/CBC/NoPadding");
-            SecretKeySpec keySpec = new SecretKeySpec(aesKey, "AES");
-            IvParameterSpec iv = new IvParameterSpec(aesKey);
-            cipher.init(Cipher.DECRYPT_MODE, keySpec, iv);
-            return Pkcs7Encoder.decode(cipher.doFinal(encrypted));
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
-        }
+        keyGenerator.init(56);//初始化此密钥生成器,使其具有确定的密钥大小
+        SecretKey secretKey = keyGenerator.generateKey();//生成一个密钥
+        byte[] bs = secretKey.getEncoded();
+        String encodeHexString = Hex.encodeHexString(bs);
+        return encodeHexString;
     }
 
     /**
-     * 提供基于PKCS7算法的加解密接口.
-     */
-    static class Pkcs7Encoder {
-        static int BLOCK_SIZE = 32;
-
-        static byte[] encode(byte[] src) {
-            int count = src.length;
-            // 计算需要填充的位数
-            int amountToPad = BLOCK_SIZE - (count % BLOCK_SIZE);
-            if (amountToPad == 0) {
-                amountToPad = BLOCK_SIZE;
-            }
-            // 获得补位所用的字符
-            byte pad = (byte) (amountToPad & 0xFF);
-            byte[] pads = new byte[amountToPad];
-            for (int index = 0; index < amountToPad; index++) {
-                pads[index] = pad;
-            }
-            int length = count + amountToPad;
-            byte[] dest = new byte[length];
-            System.arraycopy(src, 0, dest, 0, count);
-            System.arraycopy(pads, 0, dest, count, amountToPad);
-            return dest;
+     * @param plainValue  明文
+     * @param securityKey 秘钥
+     * @Description: 数据加密
+     * @Date: 2021/4/19
+     **/
+    public static String dataEncryption(String plainValue, String securityKey) {
+        byte[] result = null;
+        DESKeySpec desKeySpec = null; //实例化DES密钥规则
+        try {
+            desKeySpec = new DESKeySpec(Hex.decodeHex(securityKey));
+            SecretKeyFactory factory = SecretKeyFactory.getInstance("DES"); //实例化密钥工厂
+            Key convertSecretKey = factory.generateSecret(desKeySpec); //生成密钥
+            Cipher cipher = Cipher.getInstance("DES/ECB/PKCS5Padding");
+            // 加密
+            cipher.init(Cipher.ENCRYPT_MODE, convertSecretKey);
+            result = cipher.doFinal(plainValue.getBytes());
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-
-        static byte[] decode(byte[] decrypted) {
-            int pad = (int) decrypted[decrypted.length - 1];
-            if (pad < 1 || pad > BLOCK_SIZE) {
-                pad = 0;
-            }
-            if (pad > 0) {
-                return Arrays.copyOfRange(decrypted, 0, decrypted.length - pad);
-            }
-            return decrypted;
-        }
+        return Hex.encodeHexString(result);
     }
+
+    /**
+     * @param securityValue 密文
+     * @param securityKey   秘钥
+     * @Description: 数据解密
+     * @Date: 2021/4/19
+     **/
+    public static String dataDecryption(String securityValue, String securityKey) {
+        String desStr = "";
+        try {
+            DESKeySpec desKeySpec = new DESKeySpec(Hex.decodeHex(securityKey)); //实例化DES密钥规则
+            SecretKeyFactory factory = SecretKeyFactory.getInstance("DES"); //实例化密钥工厂
+            Key convertSecretKey = factory.generateSecret(desKeySpec); //生成密钥
+            Cipher cipher = Cipher.getInstance("DES/ECB/PKCS5Padding");
+
+            // 解密
+            cipher.init(Cipher.DECRYPT_MODE, convertSecretKey);
+            byte[] desResult = cipher.doFinal(Hex.decodeHex(securityValue));
+            desStr = new String(desResult);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return desStr;
+    }
+
 }
